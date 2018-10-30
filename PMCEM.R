@@ -13,7 +13,7 @@ N = 800;
 #塩浜先生がお作りしたものを使用しています
 sample = read.csv("sample_1000.csv");
 sample = sample[1:800,];
-#観測変数の取り出し(観測変数としては使わないものもある)
+#観測変数の取り出し
 
 y = sample$y;
 v = sample$v;
@@ -22,7 +22,7 @@ opt_params <- matrix(NA,ncol=11,nrow=100)
 #パラメータ設定 微妙にずらします
 
 i = 0
-hosts <- rep('localhost',12)
+hosts <- rep('localhost',6)
 scl <- makeCluster(hosts, "SOCK")
 for(j in 1:5){
   
@@ -32,7 +32,7 @@ for(j in 1:5){
   mu_f = 0.0+ rnorm(1,0.5); # location in wind direction for marginal
   rho_f = max(0.1+ rnorm(1,0.05),0.01); # consentration in wind direction for marginal
   V = 20+rnorm(1,sd=2);
-  mu_rho = 0.5+rnorm(1,sd=0.2);19931218ab
+  mu_rho = 0.5+rnorm(1,sd=0.2);
   sig_rho=max(1+rnorm(1,sd=0.3),0.01);
   par1 = c(phi1, gam, mu_g, mu_f, rho_f, V, mu_rho, sig_rho);
   

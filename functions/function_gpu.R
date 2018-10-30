@@ -1,8 +1,8 @@
 library(gpuR)
-
 particlefilter <- function(par, y, v, nParticle){
   
   #パラメータの取得
+  print(par)
   phi1 <- par[1]; 
   gam  <- par[2]; 
   mu_g <- par[3];
@@ -15,67 +15,76 @@ particlefilter <- function(par, y, v, nParticle){
   dT <- length(y);
   
   
-  pfOut1 <<- gpuMatrix(matrix(nrow=(dT-1), ncol=nParticle));
+  pfOut1 <- gpuMatrix(matrix(nrow=(dT-1), ncol=nParticle));
   
-  wt <<- gpuMatrix(matrix(nrow=(dT-1), ncol=nParticle));
-  rho1 <<- gpuMatrix(matrix(nrow=(dT-1), ncol=nParticle));
+  wt <- gpuMatrix(matrix(nrow=(dT-1), ncol=nParticle));
+  rho1 <- gpuMatrix(matrix(nrow=(dT-1), ncol=nParticle));
   
   a0 = rnorm(nParticle);
   t0 = rwrpcauchy(nParticle, mu_f, rho_f);
   t0 = sapply(t0, pi_shori);
   
   
-  pfOut1[1, ] <<- a0;
-  rho1[1,] <<-  0.95*(tanh(sig_rho*a0 + mu_rho )+1)/2;
-  wt[1,] <<- rep(1 / nParticle,nParticle);
+  pfOut1[1, ] <- a0;
+  rho1[1,] <-  0.95*(tanh(sig_rho*a0 + mu_rho )+1)/2;
+  wt[1,] <- rep(1 / nParticle,nParticle);
   
   
   
-  N_eff = rep(0,nParticle);
-  nEff = nParticle/10;
+  N_eff = rep(0,nParticle)
+  nEff = nParticle/10
   
   
   for(dt in 2:(dT-1)){
     
-    pfOut1[dt,] <<- phi1 * pfOut1[dt - 1, ] + rnorm(nParticle,sqrt(1-phi1^2));
-    rho1[dt,] <<- 0.95 * ( tanh( sig_rho * pfOut1[dt,] + mu_rho)+1) / 2;
+    pfOut1[dt,] <- phi1 * pfOut1[dt - 1, ] + rnorm(nParticle,sd=sqrt(1-phi1^2))
+    rho1[dt,] <- 0.95 * ( tanh( sig_rho * pfOut1[dt,] + mu_rho)+1) / 2
     if(sum(rho1[dt,] == 0)>0){
-      rho1[dt,which(rho1[dt,] == 0)] <<-  5.2736e-17;
+      rho1[dt,which(rho1[dt,] == 0)] <-  5.2736e-17
     }
-
-    tmp1 = d_conditional_WJ(y[dt+1], y[dt], mu_g, rho1[dt,], mu_f, rho_f, 1);
-    tmp2 = dgamma(v[dt]/(gam*exp(pfOut1[dt,]/2)) , shape = V, rate = V)/(gam*exp(pfOut1[dt,]/2));
     
-    wt[dt,] = (tmp1/sum(tmp1)) * (tmp2/sum(tmp2)) * wt[dt-1,];
-    wt[dt,] <<- wt[dt,] / sum(wt[dt,]);
+    tmp1 = d_conditional_WJ(y[dt+1], y[dt], mu_g, rho1[dt,], mu_f, rho_f, 1)
+    tmp2 = dgamma(v[dt]/(gam*exp(pfOut1[dt,]/2)) , shape = V, rate = V)/(gam*exp(pfOut1[dt,]/2))
+    
+    wt[dt,] = (tmp1/sum(tmp1)) * (tmp2/sum(tmp2)) * wt[dt-1,]
+    wt_tmp <- wt[dt,] / sum(wt[dt,])
+    wt[dt,] <- wt_tmp
     
     N_eff[dt] = 1 / sum(wt[dt,]^2);
-    
+    if(is.nan(sum(wt[dt,]))){
+      browser()
+      print(dt)
+    }
     if(N_eff[dt] < nEff){
-      pfOut1[dt,] <<- Resample1(pfOut1[dt,], wt[dt,], nParticle);
-      rho1[dt,] <<- Resample1(rho1[dt,], wt[dt,], nParticle);
-      wt[dt,] <<- rep(1 / nParticle,nParticle);
+      pfOut1[dt,] <- Resample1(pfOut1[dt,], wt[dt,], nParticle);
+      rho1[dt,] <- Resample1(rho1[dt,], wt[dt,], nParticle);
+      wt[dt,] <- rep(1 / nParticle,nParticle);
+    }
+    if(sum(is.na(wt[dt,]) > 0)){
+      browser()
     }
   }
   
-  return(0)
+  return(list(pfOut1 = pfOut1,rho1 = rho1,wt = wt) )
   
   
 }
 
 particlesmoother <- function(phi, pfOut1, wt){
   size = dim(wt);
-  smwt <<- gpuMatrix(matrix(nrow=size[1], ncol=size[2]));
-  smwt[size[1],] <<- wt[size[1],]
+  smwt <- gpuMatrix(matrix(nrow=size[1], ncol=size[2]));
+  smwt[size[1],] <- wt[size[1],]
   
   for (dt in (size[1] - 1):1 ){
     sm_table1 = sapply(pfOut1[dt,],function(x) dnorm(pfOut1[dt+1,],phi1 *  x,sqrt(1 - phi1^2)))
     bunsi = t(smwt[dt+1,] * sm_table1);
     bunbo = wt[dt,] %*% t(sm_table1);
     
-    smwt[dt,] <<- c(t(wt[dt,] * (bunsi %*% t(1/bunbo))))
+    smwt[dt,] <- c(t(wt[dt,] * (bunsi %*% t(1/bunbo))))
   }
+  return(smwt)
 }
+
 
 pairwise_weight <- function(phi1, filter_X, filter_weight, sm_weight){
   size = dim(filter_weight);
