@@ -117,6 +117,26 @@ r_conditional_WJ2 <- function(n, theta0, mu_g, rho_g,  mu_f, rho_f, q=1){
 	})
 }
 
+r_conditional_WJ_mean <- function(n, theta0, mu_g, rho_g,  mu_f, rho_f, q=1){
+  dx <- seq(-pi,pi,by=0.01)
+  M <- max(sapply(dx, d_conditional_WJ,
+                  theta0=theta0,mu_g=mu_g, rho_g=rho_g, mu_f=mu_f, rho_f=rho_f, q=1))
+  i <- 1
+  result <- c(1:n)
+  while (i <= n) {
+    x <- runif(1, -pi,  pi)
+    y <- M*runif(1,0,1)
+    f <- d_conditional_WJ(x,theta0, mu_g, rho_g,  mu_f, rho_f)
+    if (y <= f) {
+      result[i] <- x
+      i <- i + 1
+    }
+  }
+  r_s <- sin(result)
+  r_c <- cos(result)
+  
+  return(circular.mean(mean(r_s),mean(r_c)))
+}
 
 
 ##

@@ -43,9 +43,13 @@ wt <- X$wt
 
 smwt<-particlesmoother(phi, pfOut1, wt)
     
-    #mean_alpha = rowSums(wt * pfOut1)
-    #sm_alpha = rowSums(smwt * pfOut1)
-    #check_smoothing <- data.frame(dt=1:799,mean_alpha[],sm_alpha[])
+mean_alpha = rowSums(wt * pfOut1)
+sm_alpha = rowSums(smwt * pfOut1)
+check_smoothing <- data.frame(dt=1:799,mean_alpha,sm_alpha)
+
+p1 <- ggplot(check_smoothing %>% gather(id,value,-dt), aes(x=dt,y=value,color=id)) +
+  geom_line()
+print(p1)
     
 pw_weight <- pairwise_weight(phi1, pfOut1, wt, smwt)
     
