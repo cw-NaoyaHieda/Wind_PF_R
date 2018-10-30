@@ -172,4 +172,38 @@ Q_calc_para <- function(par, pfOut1, rho1, pw_weight, sm_weight, y, v){
 A <- matrix(c(1,2,3,4),ncol=2)
 B <- c(1,3)
 
-
+Q_calc_Estep <- function(par, pfOut1, rho1, pw_weight, sm_weight, y, v){
+  phi1 <- par[1]
+  gam  <- par[2]
+  mu_g <- par[3]
+  mu_f <- par[4]
+  rho_f <- par[5]
+  V <- par[6];
+  mu_rho <- par[7];
+  sig_rho <- par[8];
+  
+  Q_state = 0;
+  Q_obeserve = 0;
+  first_state = 0;
+  
+  size <- dim(pfOut1)
+  
+  for (dt in 2:(size[1] - 1)){
+    rho1_t_1<- 0.95 * ( tanh( sig_rho * pfOut1[dt-1,] + mu_rho)+1) / 2
+    Q_state = Q_state + sum(sum(
+      pw_weight[,,dt] * log(
+        t(sapply(pfOut1[dt,],function(x) dnorm(x, phi1 * pfOut1[dt-1,], sqrt(1 - phi1^2))))
+      )
+    ));
+    
+    tmp1 = sapply(rho1_t_1,function(x) d_conditional_WJ(y[dt], y[dt-1], mu_g, x, mu_f, rho_f, 1));
+    tmp2 = dgamma(v[dt]/(gam*exp(pfOut1[dt,]/2)) , shape = V, rate = V)/(gam*exp(pfOut1[dt,]/2));
+    Q_obeserve = Q_obeserve + sm_weight[dt-1,] %*% log(tmp1) + sm_weight[dt,] %*% log(tmp2);
+    
+    if(is.nan(Q_state)|is.nan(Q_obeserve)){
+      print(dt)
+      browser()
+    }
+  }
+  return(-Q_state - Q_obeserve);
+}

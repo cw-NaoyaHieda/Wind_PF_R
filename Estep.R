@@ -5,7 +5,11 @@ newPackages <- targetPackages[!(targetPackages %in% installed.packages()[,"Packa
 if(length(newPackages)) install.packages(newPackages, repos = "http://cran.us.r-project.org")
 for(package in targetPackages) library(package, character.only = T)
 source("functions/WSD_functions.R")
-source("functions/function.R")
+source("functions/function_gpu.R")
+
+hosts <- rep('localhost',6)
+scl <- makeCluster(hosts, "SOCK")
+
 set.seed(1000)
 #時系列数
 N = 800;
@@ -30,9 +34,6 @@ mu_rho = 0.5;
 sig_rho=1
 par1 = c(phi1, gam, mu_g, mu_f, rho_f, V, mu_rho, sig_rho);
   
-#初期パラメータの設定
-  
-opt_params[i+1,]= c(j,1,0,par1)
 
 X <- particlefilter(par1, y, v, 100)
 
@@ -49,8 +50,9 @@ smwt<-particlesmoother(phi, pfOut1, wt)
 pw_weight <- pairwise_weight(phi1, pfOut1, wt, smwt)
     
 
-result <- Q_calc(par1, pfOut1, rho1, pw_weight, smwt, y, v)
+result <- Q_calc_para(par1, pfOut1, rho1, pw_weight, smwt, y, v)
 
 result
 
+stopCluster(scl)
 
