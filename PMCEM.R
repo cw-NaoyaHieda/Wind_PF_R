@@ -5,7 +5,7 @@ newPackages <- targetPackages[!(targetPackages %in% installed.packages()[,"Packa
 if(length(newPackages)) install.packages(newPackages, repos = "http://cran.us.r-project.org")
 for(package in targetPackages) library(package, character.only = T)
 source("functions/WSD_functions.R")
-source("functions/function_gpu.R")
+source("functions/function.R")
 set.seed(1000)
 #時系列数
 N = 800;

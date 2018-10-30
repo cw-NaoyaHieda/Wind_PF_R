@@ -5,10 +5,10 @@ newPackages <- targetPackages[!(targetPackages %in% installed.packages()[,"Packa
 if(length(newPackages)) install.packages(newPackages, repos = "http://cran.us.r-project.org")
 for(package in targetPackages) library(package, character.only = T)
 source("functions/WSD_functions.R")
-source("functions/function_gpu.R")
+source("functions/function.R")
 
-hosts <- rep('localhost',6)
-scl <- makeCluster(hosts, "SOCK")
+#hosts <- rep('localhost',6)
+#scl <- makeCluster(hosts, "SOCK")
 
 set.seed(1000)
 #時系列数
@@ -50,9 +50,9 @@ smwt<-particlesmoother(phi, pfOut1, wt)
 pw_weight <- pairwise_weight(phi1, pfOut1, wt, smwt)
     
 
-result <- Q_calc_para(par1, pfOut1, rho1, pw_weight, smwt, y, v)
+result <- Q_calc_Estep(par1, pfOut1, rho1, pw_weight, smwt, y, v)
 
 result
 
-stopCluster(scl)
+#stopCluster(scl)
 
