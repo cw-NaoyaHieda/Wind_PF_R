@@ -201,7 +201,7 @@ simulate.data <- function(n, par){
   alpha <- 0
   v  <- gam * rgamma(1, shape=V, rate=V)
   
-  for(i in 2:n){ print(i)
+  for(i in 2:n){ 
   
   alpha[i] <- phi1*alpha[i-1] +sqrt(1-phi1^2)*rnorm(1)
   theta[i] <- r_conditional_WJ(n=1, 
@@ -211,7 +211,7 @@ simulate.data <- function(n, par){
            
   theta[i] <- ifelse(theta[i] > pi, theta[i]-2*pi, theta[i])
   theta[i] <- ifelse(theta[i] < -pi, theta[i]+2*pi, theta[i])
-  print(0.95*(tanh(sig_rho*alpha[i-1]+mu_rho)+1)/2)
+  #print(0.95*(tanh(sig_rho*alpha[i-1]+mu_rho)+1)/2)
      
   v[i] <-   gam*exp(alpha[i]/2)*rgamma(1, shape=V, rate=V)
       }

@@ -1,0 +1,167 @@
+---
+title: "シミュレーションデータの確認"
+editor_options: 
+  chunk_output_type: console
+output:
+  html_document:
+    toc: true
+    toc_float: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,message=F,warning = F)
+```
+
+
+```{r}
+rm(list=ls())
+Packages <- c("circular","CircStats","reshape2","scales",
+                    "tidyverse","gridExtra") 
+for(package in Packages) library(package, character.only = T)
+source("functions/WSD_functions.R")
+source("functions/function.R")
+
+theme_set(theme_bw())
+
+```
+
+# データ発生とプロット
+
+
+```{r}
+#時系列数
+#n = 2000;
+set.seed(503)
+ par1 <- c(
+  # constants in log wind speed
+  phi1 = 0.92, # AR in state of wind speed 
+  gam = 5, # constants in wind speed
+  mu_g = -0.05, # location in wind direction for transition  
+  mu_f = -1.7, # location in wind direction for marginal
+  rho_f = 0.5, # consentration in wind direction for marginal
+  V = 2,
+  mu_rho = 0.2,
+  sig_rho= 0.45)
+
+mu_rho = par1[7]
+sig_rho= par1[8]
+t<-proc.time()
+#z <- simulate.data(n, par=par1)
+z <- read.csv("data20181026.csv")
+#proc.time()-t
+y <- z$y
+v <- z$v
+n <- length(y)
+#alp <- z$alpha
+#rho_ans <- z$rho
+#write.csv(data.frame(y,v,alp,rho_ans),"sim_data_tmp.csv")
+```
+
+
+```{r}
+x <-seq(0.001, 8, by=0.01)
+y_slide <- (tanh(sig_rho*x+mu_rho)+1)/2
+ggplot(data.frame(x,y_slide) %>% gather(id,value,-x),aes(x,value,color=id))+geom_line()
+```
+
+```{r}
+ggplot(data.frame(y,v) ,aes(x=v,y=y))+geom_point()
+```
+
+```{r}
+df=data.frame(x=1:n,
+              y=z$theta,
+              v=z$v,
+              rho=z$rho,
+              alpha=z$alpha)
+df2=melt(df,id.vars=c("x"),
+    measure.vars=c("y","v","rho", "alpha"))
+
+levels(df2$variable)[levels(df2$variable)=="y"] <- "Wind Direction"
+levels(df2$variable)[levels(df2$variable)=="v"] <- "Wind Speed"
+
+
+   ggplot(df2,aes(x,value))+
+   facet_grid(variable~.,scales="free_y")+ylab("")+
+   geom_point(data = subset(df2, variable == "Wind Direction"),size=1.2) +
+   geom_line(data = subset(df2, variable == "Wind Speed"),size=.1) +
+   geom_line(data = subset(df2, variable == "rho"),size=.1)+
+   geom_line(data = subset(df2, variable == "alpha"),size=.1)
+```
+
+```{r}
+ggplot(df2[df2$variable=="Wind Direction",],aes(x,value))+
+   ylab("Wind Direction")+
+   geom_point()
+ggplot(df2[df2$variable=="Wind Speed",],aes(x,value))+
+   ylab("Wind Speed")+
+   geom_line()
+ggplot(df2[df2$variable=="rho",],aes(x,value))+
+   ylab("rho")+
+   geom_line()
+ggplot(df2[df2$variable=="alpha",],aes(x,value))+
+   ylab("alpha")+
+   geom_line()
+```
+
+
+
+# 真値でフィルタリング
+
+```{r}
+#　フィルタリング
+X <- particlefilter(par1, y, v, 100)
+
+pfOut1 <- X$pfOut1
+rho1 <- X$rho1
+wt <- X$wt
+```
+
+# 真値で平滑化
+
+```{r}
+phi <- par1[1]
+smwt<-particlesmoother(phi, pfOut1, wt)
+```
+
+# plot
+
+```{r}
+
+
+# v
+mean_v = rowSums(par1[2]*exp(pfOut1/2)*wt)
+sm_v = rowSums(par1[2]*exp(pfOut1/2)*smwt)
+check_smoothing <- data.frame(dt=1:length(mean_v),mean_v,sm_v,answer = v[-length(v)])
+
+p2 <- ggplot(check_smoothing %>% gather(id,v,-dt), aes(x=dt,y=v,color=id)) +
+  geom_line()
+print(p2)
+
+
+# alpha
+
+mean_alpha = rowSums(wt * pfOut1)
+sm_alpha = rowSums(smwt * pfOut1)
+check_smoothing <- data.frame(dt=1:length(mean_alpha),mean_alpha,sm_alpha,answer = alp[-length(mean_alpha)])
+
+p3 <- ggplot(check_smoothing %>% gather(id,alpha,-dt), aes(x=dt,y=alpha,color=id)) +
+  geom_line()
+print(p3)
+
+mean_rho = rowSums(wt * rho1)
+sm_rho = rowSums(smwt * rho1)
+check_smoothing <- data.frame(dt=1:length(mean_rho),mean_rho,sm_rho,answer = rho_ans[-length(rho_ans)])
+
+
+# rho
+
+p4 <- ggplot(check_smoothing %>% gather(id,rho,-dt), aes(x=dt,y=rho,color=id)) +
+  geom_line()
+print(p4)
+
+print(grid.arrange( p2, p3, p4,
+                   nrow = 3))
+```
+
+

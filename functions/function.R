@@ -69,7 +69,7 @@ particlefilter <- function(par, y, v, nParticle){
   
 }
 
-particlesmoother <- function(phi, pfOut1, wt){
+particlesmoother <- function(phi1, pfOut1, wt){
   size = dim(wt);
   smwt <- (matrix(nrow=size[1], ncol=size[2]));
   smwt[size[1],] <- wt[size[1],]
@@ -249,7 +249,7 @@ particlefilter_theta_estimate <- function(par, y, v, nParticle){
   
   
   for(dt in 2:(dT-1)){
-    
+    print(dt)
     pfOut1[dt,] <- phi1 * pfOut1[dt - 1, ] + rnorm(nParticle,sd=sqrt(1-phi1^2))
     rho1[dt,] <- 0.95 * ( tanh( sig_rho * pfOut1[dt,] + mu_rho)+1) / 2
     if(sum(rho1[dt,] == 0)>0){
