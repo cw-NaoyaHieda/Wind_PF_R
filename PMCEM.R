@@ -1,6 +1,6 @@
 
 rm(list=ls())
-Packages <- c("circular","CircStats","grid","reshape2","ggplot2","scales","tidyverse","optimParallel","snow") 
+Packages <- c("circular","CircStats","reshape2","scales","tidyverse","optimParallel","snow") 
 for(package in Packages) library(package, character.only = T)
 source("functions/WSD_functions.R")
 source("functions/function.R")
@@ -13,13 +13,15 @@ N = 800;
 sample = read.csv("sample_1000_2.csv");
 sample = sample[1:800,];
 #観測変数の取り出し
-cl <- makeCluster(8)     # set the number of processor cores
+cl <- makeCluster(6)     # set the number of processor cores
 setDefaultCluster(cl=cl) # set 'cl' as default cluster
-
+clusterExport(cl,list("Q_calc","sig" ,'d_conditional_WJ',
+                      'psswrappedcauchy','dsswrpcauchy'))
 y = sample$y;
 v = sample$v;
 
 opt_params <- matrix(NA,ncol=11,nrow=100)
+checkers <- c()
 #パラメータ設定 微妙にずらします
 
 i = 0
@@ -42,7 +44,7 @@ for(j in 1){
   i <- i+1
   
   k=2
-  while(k==2 || (check/800 > 0.0001 && k<=11) ){
+  while(k==2 || (check < -0.0001 && k<=11) ){
     X <- particlefilter(par1, y, v, 100)
     pfOut1 <- X$pfOut1
     rho1 <- X$rho1
@@ -73,8 +75,10 @@ for(j in 1){
       Q_calc(par1, pfOut1, rho1, pw_weight, smwt, y, v)
     }
     print("optim start")
-    result <- optimParallel(par = par1,fn = optim_fun,parallel=list(forward=TRUE),method ="L-BFGS-B")
     
+    clusterExport(cl,list("pfOut1","rho1","pw_weight","smwt","y","v"))
+    result <- optimParallel(par = par1,fn = optim_fun,parallel=list(forward=TRUE),method ="L-BFGS-B")
+    print("optim end")
     
     par1[1] = sig(result$par[1])
     par1[2] = exp(result$par[2])
@@ -83,7 +87,9 @@ for(j in 1){
     par1[8] = exp(result$par[8])
     opt_params[i+1,] <- c(j,k,result$value,par1)
     i <- i+1
-    check <- abs(opt_params[i,3] - opt_params[i-1,3])
+    check <- (opt_params[i,3] - opt_params[i-1,3])/opt_params[i-1,3]
+    checkers <- c(checkers,check)
+    print(checkers)
     print(i)
     print(j)
     print(k)
@@ -93,3 +99,4 @@ for(j in 1){
 }
 
 #stopCluster(scl)
+stopCluster(cl)
