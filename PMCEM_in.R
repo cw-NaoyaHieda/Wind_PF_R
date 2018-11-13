@@ -6,17 +6,14 @@ source("functions/WSD_functions.R")
 source("functions/function.R")
 set.seed(1000)
 #時系列数
-N = 800;
+N = 300;
 
 #塩浜先生がお作りしたものを使用しています
 #sample = read.csv("sample_1000.csv");
 sample = read.csv("sample_1000_2.csv");
-sample = sample[1:800,];
+sample = sample[1:300,];
 #観測変数の取り出し
-cl <- makeCluster(12,type="SOCK")     # set the number of processor cores
-setDefaultCluster(cl=cl) # set 'cl' as default cluster
-clusterExport(cl,list("Q_calc","sig" ,'d_conditional_WJ',
-                      'psswrappedcauchy','dsswrpcauchy','Q_calc_in','sig_95','sig_env_95'))
+
 y = sample$y;
 v = sample$v;
 
@@ -46,15 +43,18 @@ for(j in 1:3){
   i <- i+1
   
   k=2
-  while(k==2 || k==3 || (check < -0.0001 && k<=51) ){
-    X <- particlefilter(par1, y, v, 100)
+  while(k==2 || k==3 || (check < -0.0001 && k<=31) ){
+    cl <- makeCluster(24,type="SOCK")     # set the number of processor cores
+    setDefaultCluster(cl=cl) # set 'cl' as default cluster
+    clusterExport(cl,list("Q_calc","sig" ,'d_conditional_WJ',
+                          'psswrappedcauchy','dsswrpcauchy','Q_calc_in','sig_95','sig_env_95'))
+    X <- particlefilter(par1, y, v, 1000)
     pfOut1 <- X$pfOut1
     rho1 <- X$rho1
     wt <- X$wt
     phi1 <- par1[1]
     print("smoothing start")
     smwt<-particlesmoother(phi1, pfOut1, wt)
-    weight_table <- X2$weight_table
     print("smoothing end")
     #mean_alpha = rowSums(wt * pfOut1)
     #sm_alpha = rowSums(smwt * pfOut1)
@@ -82,8 +82,7 @@ for(j in 1:3){
     rho1 <- rho1[]
     smwt <- smwt[]
     clusterExport(cl,list("pfOut1","rho1","pw_weight","smwt","y","v"))
-    
-    result <- optimParallel(par = par1,fn = optim_fun,parallel=list(forward=TRUE),method ="BFGS")
+    result <- optimParallel(par = par1,fn = optim_fun,method ="CG",parallel = list(cl = cl))
     print("optim end")
     now_Q <- c(now_Q , optim_fun(par1))
     par1[1] = sig_95(result$par[1])
@@ -103,9 +102,10 @@ for(j in 1:3){
     print(check)
     k <- k+1
     rm(pfOut1,result,rho1,wt,smwt,X,pw_weight)
+    stopCluster(cl)
   }
 }
 
 #stopCluster(scl)
-stopCluster(cl)
+
 
