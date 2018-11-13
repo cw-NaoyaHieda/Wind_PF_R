@@ -149,6 +149,8 @@ renderPlot({
 ```{r}
 sliderInput("question1", h3("時点"),
                        min = 1, max = 799, value = 1)
+sliderInput("dig", h3("精度(小数点以下桁数)"),
+                       min = 1, max = 5, value = 2)
 ```
 
 
@@ -160,24 +162,25 @@ sliderInput("question1", h3("時点"),
 
 ```{r}
 question1 <- reactive(input$question1)
+dig <- reactive(input$dig)
 renderPlot({
-  p1 <- ggplot(data = data.frame(alpha= round(t(pfOut1_100[question1(),]),digits = 2),
+  p1 <- ggplot(data = data.frame(alpha= round(t(pfOut1_100[question1(),]),digits = dig()),
                                  weight = t(wt_100[question1(),])))+
-    geom_bar(stat = "identity",aes(x=alpha,y=weight)) +
+    geom_histogram(stat = "identity",aes(x=alpha,y=weight)) +
     geom_vline(xintercept = sum(wt_100[question1(),] *
                                   pfOut1_100[question1(),]),color='blue')+
     geom_vline(xintercept = df$alpha[question0()],color='red')+
     xlim(-3.5,3.5)+ scale_y_continuous(labels=scaleFUN) 
-  p2 <- ggplot(data = data.frame(alpha= round(t(pfOut1_1000[question1(),]),digits = 2),
+  p2 <- ggplot(data = data.frame(alpha= round(t(pfOut1_1000[question1(),]),digits = dig()),
                                  weight = t(wt_1000[question1(),])))+
-    geom_bar(stat = "identity",aes(x=alpha,y=weight))+ 
+    geom_histogram(stat = "identity",aes(x=alpha,y=weight))+ 
     geom_vline(xintercept = sum(wt_1000[question1(),] *
                                   pfOut1_1000[question1(),]),color='blue')+
     geom_vline(xintercept = df$alpha[question0()],color='red')+
     xlim(-3.5,3.5)+ scale_y_continuous(labels=scaleFUN) 
-  p3 <- ggplot(data = data.frame(alpha= round(t(pfOut1_10000[question1(),]),digits = 2),
+  p3 <- ggplot(data = data.frame(alpha= round(t(pfOut1_10000[question1(),]),digits = dig()),
                                  weight = t(wt_10000[question1(),])))+
-    geom_bar(stat = "identity",aes(x=alpha,y=weight))+
+    geom_histogram(stat = "identity",aes(x=alpha,y=weight))+
     geom_vline(xintercept = sum(wt_10000[question1(),] *
                                   pfOut1_10000[question1(),]),color='blue')+
     geom_vline(xintercept = df$alpha[question0()],color='red')+

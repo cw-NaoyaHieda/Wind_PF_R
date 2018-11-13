@@ -38,6 +38,9 @@ scaleFUN <- function(x) sprintf("%.2f", x)
 
 ```{r}
 actionButton("simulate", "SimulateStart")
+numericInput("seed", 
+                        h4("seed"), 
+                        value = 0) 
 sliderInput("phi1", a("phi1"),
                        min = 0.1, max = 0.95, value = 0.9)
 sliderInput("gam",a("gam"),
@@ -69,6 +72,7 @@ numericInput("dt",
 
 ```{r}
 renderPlot({
+  seed <- reactive(input$seed)
   phi1 <- reactive(input$phi1)
   gam <- reactive(input$gam)
   mu_g <- reactive(input$mu_g)
@@ -83,7 +87,7 @@ renderPlot({
   
   go <- reactive(input$simulate)
   go()
-  set.seed(1218)
+  set.seed(seed())
   z <<- simulate.data(n(), par=par1)
   
   
@@ -131,6 +135,10 @@ renderPlot({
     
   ggplot(plot_d ,aes(x=v,y=y))+geom_point() + xlab("Wind Speed") + ylab("Wind Direction")
   
+  start <- reactive(input$filter)
+  particle <- reactive(input$particle)
+  
+  
 })
 
 
@@ -147,9 +155,33 @@ numericInput("particle",
                         h4("Particle"), 
                         value = 100) 
 
-selectInput("select", h3("Select box"), 
-                       choices = list("Choice 1" = 1, "Choice 2" = 2,
-                                      "Choice 3" = 3), selected = 1)
+selectInput("plot", h3("Plot type"), 
+                       choices = list("Time series" = 1, "Particle" = 2,
+                                      "Hist" = 3), selected = 1)
+
+ numericInput("ch_time", 
+                        h4("Check Time"), 
+                        value = 2) 
+  ch_time <- reactive(input$ch_time)
+  sliderInput("dig", h3("精度(小数点以下桁数)"),
+                       min = 1, max = 5, value = 2)
+```
+
+
+## left{data-width=1}
+
+### 
+```{r}
+renderPlot({
+  start <- reactive(input$filter)
+  particle <- reactive(input$particle)
+  start()
+  X <<- particlefilter(par1, z$theta, z$v, particle())
+  pfOut1 <<- X$pfOut1
+  rho1 <<- X$rho1
+  wt <<- X$wt
+})
+
 ```
 
 
@@ -158,18 +190,16 @@ selectInput("select", h3("Select box"),
 ### 
 
 ```{r}
+dig <- reactive(input$dig)
 renderPlot({
   start <- reactive(input$filter)
   particle <- reactive(input$particle)
   start()
+  particle()
+  plot_button <- reactive(input$plot)
   
-  X <- particlefilter(par1, z$theta, z$v, particle())
-  pfOut1 <- X$pfOut1
-  rho1 <- X$rho1
-  wt <- X$wt
-  
-  
-  filter_alpha = rowSums(wt * pfOut1)
+  if(plot_button()==1){
+   filter_alpha = rowSums(wt * pfOut1)
   p1 <- ggplot(data.frame(dt = 1:(length(z$alpha)-1),
                     answer_alpha= z$alpha[-length(z$alpha)],
                     filter_alpha = filter_alpha) %>% gather(id,value,-dt),
@@ -190,8 +220,72 @@ renderPlot({
          aes(x=dt,y=value,color=id) ) + 
     geom_line()
   
-  grid.arrange( p1, p2, p3,
-                   nrow = 3)
+  }
+  if(plot_button()==2){
+    
+   
+   p1 <- ggplot(data = data.frame(alpha= pfOut1[ch_time(),],
+                                   weight = wt[ch_time(),]),
+          aes(x=alpha,y=weight))+
+    geom_point()+
+    geom_vline(xintercept = sum(wt[ch_time(),] *
+                                  pfOut1[ch_time(),]),color='blue')+
+    geom_vline(xintercept = z$alpha[ch_time()],color='red')+
+    xlim(-3.5,3.5)+ scale_y_continuous(labels=scaleFUN)
+   
+   p2 <- ggplot(data = data.frame(rho= rho1[ch_time(),],
+                                   weight = wt[ch_time(),]),
+          aes(x=rho,y=weight))+
+    geom_point()+
+    geom_vline(xintercept = sum(wt[ch_time(),] *
+                                  rho1[ch_time(),]),color='blue')+
+    geom_vline(xintercept = z$rho[ch_time()],color='red')+
+    xlim(0, 1)+ scale_y_continuous(labels=scaleFUN)
+   
+   p3 <- ggplot(data = data.frame(v= par1[2]*exp(pfOut1[ch_time(),]/2),
+                                   weight = wt[ch_time(),]),
+          aes(x=v,y=weight))+
+    geom_point()+
+    geom_vline(xintercept = sum(wt[ch_time(),] *
+                                  par1[2]*exp(pfOut1[ch_time(),]/2)),color='blue')+
+    geom_vline(xintercept = z$v[ch_time()],color='red')+
+    xlim(0,8)+ scale_y_continuous(labels=scaleFUN)
+   
+  }
+  
+  if(plot_button()==3){
+    
+    p1 <- ggplot(data = data.frame(alpha= round(pfOut1[ch_time(),],digits = dig()),
+                                   weight = wt[ch_time(),]),
+          aes(x=alpha,y=weight))+
+    geom_bar(stat = "identity")+
+    geom_vline(xintercept = sum(wt[ch_time(),] *
+                                  pfOut1[ch_time(),]),color='blue')+
+    geom_vline(xintercept = z$alpha[ch_time()],color='red')+
+    xlim(-3.5,3.5)+ scale_y_continuous(labels=scaleFUN)
+   
+   p2 <- ggplot(data = data.frame(rho= round(rho1[ch_time(),],digits = dig()),
+                                   weight = wt[ch_time(),]),
+          aes(x=rho,y=weight))+
+    geom_histogram(stat = "identity")+
+    geom_vline(xintercept = sum(wt[ch_time(),] *
+                                  rho1[ch_time(),]),color='blue')+
+    geom_vline(xintercept = z$rho[ch_time()],color='red')+
+    xlim(0, 1)+ scale_y_continuous(labels=scaleFUN)
+   
+   p3 <- ggplot(data = data.frame(v= round(par1[2]*exp(pfOut1[ch_time(),]/2),digits = dig()),
+                                   weight = wt[ch_time(),]),
+          aes(x=v,y=weight))+
+    geom_histogram(stat = "identity")+
+    geom_vline(xintercept = sum(wt[ch_time(),] *
+                                  par1[2]*exp(pfOut1[ch_time(),]/2)),color='blue')+
+    geom_vline(xintercept = z$v[ch_time()],color='red')+
+    xlim(0,8)+ scale_y_continuous(labels=scaleFUN)
+    
+  }
+  
+  grid.arrange( p1,p2,p3,
+                   nrow = 3) 
 })
 
 ```
