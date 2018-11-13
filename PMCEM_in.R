@@ -1,5 +1,6 @@
 
 rm(list=ls())
+t<-proc.time()
 Packages <- c("circular","CircStats","reshape2","scales","tidyverse","optimParallel","snow") 
 for(package in Packages) library(package, character.only = T)
 source("functions/WSD_functions.R")
@@ -24,7 +25,7 @@ now_Q <- c()
 
 i = 0
 #hosts <- rep('localhost',6)
-for(j in 1:3){
+for(j in 1:2){
   
   phi1 = min(0.90+rnorm(1,sd=0.01),0.945);
   gam = max(3+rnorm(1),1); #constants in wind speed
@@ -82,7 +83,7 @@ for(j in 1:3){
     rho1 <- rho1[]
     smwt <- smwt[]
     clusterExport(cl,list("pfOut1","rho1","pw_weight","smwt","y","v"))
-    result <- optimParallel(par = par1,fn = optim_fun,method ="CG",parallel = list(cl = cl))
+    result <- optimParallel(par = par1,fn = optim_fun,method ="L-BFGS-B",parallel = list(cl = cl))
     print("optim end")
     now_Q <- c(now_Q , optim_fun(par1))
     par1[1] = sig_95(result$par[1])
@@ -107,5 +108,5 @@ for(j in 1:3){
 }
 
 #stopCluster(scl)
-
+total_time <- proc.time()-t
 
