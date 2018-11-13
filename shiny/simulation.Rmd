@@ -1,0 +1,197 @@
+---
+title: "Particle Filter for Wind Speed and Direction"
+author: "Naoya"
+runtime: shiny
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: columns
+    social: menu
+---
+
+
+```{r}
+rm(list=ls())
+
+Packages <- c("circular","CircStats","reshape2","scales","tidyverse","optimParallel","snow","data.table","gridExtra") 
+source("../functions/WSD_functions.R")
+source("functions_shiny.R")
+for(package in Packages) library(package, character.only = T)
+set.seed(1000)
+phi1 = 0.90
+gam = 3 #constants in wind speed
+mu_g = 0.0  # location in wind direction for transition
+mu_f = 0.0 # location in wind direction for marginal
+rho_f = 0.1 # consentration in wind direction for marginal
+V = 3
+mu_rho = 0.5
+sig_rho= 1
+par1 = c(phi1, gam, mu_g, mu_f, rho_f, V, mu_rho, sig_rho);
+
+theme_set(theme_bw())
+
+scaleFUN <- function(x) sprintf("%.2f", x) 
+```
+
+# Simulation
+
+## Inputs {.sidebar}
+
+```{r}
+actionButton("simulate", "SimulateStart")
+sliderInput("phi1", a("phi1"),
+                       min = 0.1, max = 0.95, value = 0.9)
+sliderInput("gam",a("gam"),
+                       min = 0.1, max = 10, value = 3)
+sliderInput("mu_g",a("mu_g"),
+                       min = -3.0, max = 3.0, value = 0)
+sliderInput("mu_f",a("mu_f"),
+                       min = -3.0, max = 3.0, value = 0)
+sliderInput("rho_f",a("rho_f"),
+                       min = 0.01, max = 0.99, value = 0.1)
+sliderInput("V",a("V"),
+                       min = 1, max = 10, value = 3)
+sliderInput("mu_rho",a("mu_rho"),
+                       min = 0.0, max = 1, value = 0.5)
+sliderInput("sig_rho",a("sig_rho"),
+                       min = 0.01, max = 3, value = 1)
+numericInput("dt", 
+                        h4("dt"), 
+                        value = 10) 
+
+```
+
+
+## left{data-width=1000}
+
+### 
+
+
+
+```{r}
+renderPlot({
+  phi1 <- reactive(input$phi1)
+  gam <- reactive(input$gam)
+  mu_g <- reactive(input$mu_g)
+  mu_f <- reactive(input$mu_f)
+  rho_f <- reactive(input$rho_f)
+  V <- reactive(input$V)
+  mu_rho <- reactive(input$mu_rho)
+  sig_rho <- reactive(input$sig_rho)
+  n <- reactive(input$dt)
+  par1 <<- c(phi1(), gam(), mu_g(), mu_f(),
+             rho_f(), V(), mu_rho(), sig_rho())
+  
+  go <- reactive(input$simulate)
+  go()
+  set.seed(1218)
+  z <<- simulate.data(n(), par=par1)
+  
+  
+  
+  plot_d<<-data.frame(x=1:n(),
+              y=z$theta,
+              v=z$v,
+              rho=z$rho,
+              alpha=z$alpha)
+plot_d2<<-melt(plot_d,id.vars=c("x"),
+    measure.vars=c("y","v","rho", "alpha"))
+
+levels(plot_d2$variable)[levels(plot_d2$variable)=="y"] <- "Wind Direction"
+levels(plot_d2$variable)[levels(plot_d2$variable)=="v"] <- "Wind Speed"
+
+ggplot(plot_d2,aes(x,value))+
+  facet_grid(variable~.,scales="free_y")+ylab("")+
+  geom_point(data = subset(plot_d2, variable == "Wind Direction"),size=1.2) +
+  geom_line(data = subset(plot_d2, variable == "Wind Speed"),size=.1) +
+  geom_line(data = subset(plot_d2, variable == "rho"),size=.1)+
+  geom_line(data = subset(plot_d2, variable == "alpha"),size=.1)
+})
+```
+
+## right
+
+###
+
+```{r}
+
+renderPlot({
+  phi1 <- reactive(input$phi1)
+  gam <- reactive(input$gam)
+  mu_g <- reactive(input$mu_g)
+  mu_f <- reactive(input$mu_f)
+  rho_f <- reactive(input$rho_f)
+  V <- reactive(input$V)
+  mu_rho <- reactive(input$mu_rho)
+  sig_rho <- reactive(input$sig_rho)
+  n <- reactive(input$dt)
+  data.frame(phi1(), gam(), mu_g(), mu_f(), rho_f(), V(), mu_rho(), sig_rho(),n())
+  
+  go <- reactive(input$simulate)
+  go()
+    
+  ggplot(plot_d ,aes(x=v,y=y))+geom_point() + xlab("Wind Speed") + ylab("Wind Direction")
+  
+})
+
+
+```
+
+# Filter
+
+## Inputs {.sidebar}
+
+```{r}
+actionButton("filter", "FilterStart")
+
+numericInput("particle", 
+                        h4("Particle"), 
+                        value = 100) 
+
+selectInput("select", h3("Select box"), 
+                       choices = list("Choice 1" = 1, "Choice 2" = 2,
+                                      "Choice 3" = 3), selected = 1)
+```
+
+
+##
+
+### 
+
+```{r}
+renderPlot({
+  start <- reactive(input$filter)
+  particle <- reactive(input$particle)
+  start()
+  
+  X <- particlefilter(par1, z$theta, z$v, particle())
+  pfOut1 <- X$pfOut1
+  rho1 <- X$rho1
+  wt <- X$wt
+  
+  
+  filter_alpha = rowSums(wt * pfOut1)
+  p1 <- ggplot(data.frame(dt = 1:(length(z$alpha)-1),
+                    answer_alpha= z$alpha[-length(z$alpha)],
+                    filter_alpha = filter_alpha) %>% gather(id,value,-dt),
+         aes(x=dt,y=value,color=id) ) + 
+    geom_line()
+  
+  filter_rho = rowSums(wt * rho1)
+  p2 <- ggplot(data.frame(dt = 1:(length(z$rho)-1),
+                    answer_rho= z$rho[-length(z$rho)],
+                    filter_rho = filter_rho) %>% gather(id,value,-dt),
+         aes(x=dt,y=value,color=id) ) + 
+    geom_line()
+  
+  filter_v = rowSums(par1[2]*exp(pfOut1/2)*wt)
+  p3 <- ggplot(data.frame(dt = 1:(length(z$v)-1),
+                    answer_v= z$v[-length(z$v)],
+                    filter_v = filter_v) %>% gather(id,value,-dt),
+         aes(x=dt,y=value,color=id) ) + 
+    geom_line()
+  
+  grid.arrange( p1, p2, p3,
+                   nrow = 3)
+})
+
+```
