@@ -23,12 +23,12 @@ score.wrappedcauchy <- function(y, mu, rho)
 
 psswrappedcauchy <-function (y, mu , rho, lambda )
 {
-##lambda=0 wrapped cauchy
-## -pi < y < pi
-tmp1 <- (1+rho)/(1-rho)*tan( (y-mu)/2 )
-tmp2 <- lambda*(1-rho^2)/(4*pi*rho)*log( (1+rho^2-2*rho*cos(y-mu))/(1+rho)^2 )
-tmp <-unname(0.5+ atan(tmp1)/pi+tmp2)
-return(tmp)
+  ##lambda=0 wrapped cauchy
+  ## -pi < y < pi
+  tmp1 <- (1+rho)/(1-rho)*tan( (y-mu)/2 )
+  tmp2 <- lambda*(1-rho^2)/(4*pi*rho)*log( (1+rho^2-2*rho*cos(y-mu))/(1+rho)^2 )
+  tmp <-unname(0.5+ atan(tmp1)/pi+tmp2)
+  return(tmp)
 }
 
 
@@ -38,9 +38,9 @@ return(tmp)
 ###
 
 dsswrpcauchy<- function(theta, mu, rho, lambda){
- (1 - rho^2)/((2 * pi) * (1 + rho^2 - 2 * rho * cos(theta - 
-        mu)))*(1+lambda*sin(theta-mu))
- }
+  (1 - rho^2)/((2 * pi) * (1 + rho^2 - 2 * rho * cos(theta - 
+                                                       mu)))*(1+lambda*sin(theta-mu))
+}
 
 
 ###
@@ -74,21 +74,21 @@ d_conditional_WJ <- function(x, theta0, mu_g, rho_g,  mu_f, rho_f, q=1){
 ###
 
 r_conditional_WJ <- function(n, theta0, mu_g, rho_g,  mu_f, rho_f, q=1){
- dx <- seq(-pi,pi,by=0.01)
- M <- max(sapply(dx, d_conditional_WJ,
-            theta0=theta0,mu_g=mu_g, rho_g=rho_g, mu_f=mu_f, rho_f=rho_f, q=1))
-	i <- 1
-	result <- c(1:n)
-	while (i <= n) {
-		x <- runif(1, -pi,  pi)
-		y <- M*runif(1,0,1)
-		f <- d_conditional_WJ(x,theta0, mu_g, rho_g,  mu_f, rho_f)
-	if (y <= f) {
-			result[i] <- x
-			i <- i + 1
-		    }
-			}
-	result
+  dx <- seq(-pi,pi,by=0.01)
+  M <- max(sapply(dx, d_conditional_WJ,
+                  theta0=theta0,mu_g=mu_g, rho_g=rho_g, mu_f=mu_f, rho_f=rho_f, q=1))
+  i <- 1
+  result <- c(1:n)
+  while (i <= n) {
+    x <- runif(1, -pi,  pi)
+    y <- M*runif(1,0,1)
+    f <- d_conditional_WJ(x,theta0, mu_g, rho_g,  mu_f, rho_f)
+    if (y <= f) {
+      result[i] <- x
+      i <- i + 1
+    }
+  }
+  result
 }
 
 
@@ -99,22 +99,22 @@ r_conditional_WJ <- function(n, theta0, mu_g, rho_g,  mu_f, rho_f, q=1){
 
 #library(pforeach)
 r_conditional_WJ2 <- function(n, theta0, mu_g, rho_g,  mu_f, rho_f, q=1){
- dx <- seq(-pi,pi,by=0.01)
- M <- max(sapply(dx, d_conditional_WJ,
-            theta0=theta0,mu_g=mu_g, rho_g=rho_g, mu_f=mu_f, rho_f=rho_f, q=1))
-	i <- 1
-	result <- c(1:n)
-	result <- pforeach(i = 1 : n)({
-	    reject=TRUE
-	  	while( reject){
-	    x <- runif(1, -pi,  pi)
-	    y <- M*runif(1,0,1)  
-			f <- d_conditional_WJ(x,theta0, mu_g, rho_g,  mu_f, rho_f)  
-	  if (y <= f) { 
-	    out =x
-	    reject=FALSE}}
-			out
-	})
+  dx <- seq(-pi,pi,by=0.01)
+  M <- max(sapply(dx, d_conditional_WJ,
+                  theta0=theta0,mu_g=mu_g, rho_g=rho_g, mu_f=mu_f, rho_f=rho_f, q=1))
+  i <- 1
+  result <- c(1:n)
+  result <- pforeach(i = 1 : n)({
+    reject=TRUE
+    while( reject){
+      x <- runif(1, -pi,  pi)
+      y <- M*runif(1,0,1)  
+      f <- d_conditional_WJ(x,theta0, mu_g, rho_g,  mu_f, rho_f)  
+      if (y <= f) { 
+        out =x
+        reject=FALSE}}
+    out
+  })
 }
 
 r_conditional_WJ_mean <- function(n, theta0, mu_g, rho_g,  mu_f, rho_f, q=1){
@@ -194,7 +194,7 @@ simulate.data <- function(n, par){
   V <- par[6]
   mu_rho <- par[7]
   sig_rho <- par[8]
-   ## initial state
+  ## initial state
   theta <- rwrpcauchy(1, location=mu_f, rho=rho_f)
   theta <- ifelse(theta>pi, theta-2*pi, theta)
   
@@ -202,19 +202,19 @@ simulate.data <- function(n, par){
   v  <- gam * rgamma(1, shape=V, rate=V)
   
   for(i in 2:n){ 
-  
-  alpha[i] <- phi1*alpha[i-1] +sqrt(1-phi1^2)*rnorm(1)
-  theta[i] <- r_conditional_WJ(n=1, 
-                        theta0=theta[i-1], mu_g=mu_g,   
-                        rho_g=0.95*(tanh(sig_rho*alpha[i-1]+mu_rho)+1)/2,
-                        mu_f=mu_f, rho_f=rho_f, q=1)
-           
-  theta[i] <- ifelse(theta[i] > pi, theta[i]-2*pi, theta[i])
-  theta[i] <- ifelse(theta[i] < -pi, theta[i]+2*pi, theta[i])
-  #print(0.95*(tanh(sig_rho*alpha[i-1]+mu_rho)+1)/2)
-     
-  v[i] <-   gam*exp(alpha[i]/2)*rgamma(1, shape=V, rate=V)
-      }
+    
+    alpha[i] <- phi1*alpha[i-1] +sqrt(1-phi1^2)*rnorm(1)
+    theta[i] <- r_conditional_WJ(n=1, 
+                                 theta0=theta[i-1], mu_g=mu_g,   
+                                 rho_g=0.95*(tanh(sig_rho*alpha[i-1]+mu_rho)+1)/2,
+                                 mu_f=mu_f, rho_f=rho_f, q=1)
+    
+    theta[i] <- ifelse(theta[i] > pi, theta[i]-2*pi, theta[i])
+    theta[i] <- ifelse(theta[i] < -pi, theta[i]+2*pi, theta[i])
+    #print(0.95*(tanh(sig_rho*alpha[i-1]+mu_rho)+1)/2)
+    
+    v[i] <-   gam*exp(alpha[i]/2)*rgamma(1, shape=V, rate=V)
+  }
   rho =0.95*(tanh(sig_rho*alpha+mu_rho)+1)/2
   return(list(alpha=as.numeric(alpha),
               theta=as.numeric(theta),
@@ -228,16 +228,16 @@ simulate.data <- function(n, par){
 ## Miscellaneous  function
 
 circular.mean <- function(m.sin, m.cos){
-if(m.sin >0 &  m.cos> 0) return(atan(m.sin/m.cos))
-else if(m.sin < 0 &  m.cos >  0) return(atan(m.sin/m.cos))
-else if(m.sin < 0 &  m.cos <  0) return(atan(m.sin/m.cos)-pi)
-else if(  m.sin >0 & m.cos <  0) return(atan(m.sin/m.cos)+pi)
+  if(m.sin >0 &  m.cos> 0) return(atan(m.sin/m.cos))
+  else if(m.sin < 0 &  m.cos >  0) return(atan(m.sin/m.cos))
+  else if(m.sin < 0 &  m.cos <  0) return(atan(m.sin/m.cos)-pi)
+  else if(  m.sin >0 & m.cos <  0) return(atan(m.sin/m.cos)+pi)
 }
 
 
 Resample1 <- function(data, weight, NofSample){
   re_ind <- runif(NofSample)
-  cmwt <- cumsum(weight)/sum(weight);
+  cmwt <- cumsum(as.double(weight));
   st <- sapply(re_ind, function(x) sum(x>cmwt[-length(cmwt)]))
   newdata <- data[ (st+1) ]
   return(newdata)
@@ -261,12 +261,18 @@ Resample2 <- function(data1, data2, weight, NofSample){
 Resample3 <- function(data1, data2, weight, NofSample){
   fit1 <- density(data1, window="epanechnikov", weights =weight)
   data1.new <- rnorm(NofSample, sample(data1, size = NofSample, replace = TRUE), fit1$bw)
-    fit2 <- density(data2, window="epanechnikov", weights =weight) 
+  fit2 <- density(data2, window="epanechnikov", weights =weight) 
   data2.new <- rnorm(NofSample, sample(data2, size = NofSample, replace = TRUE), fit2$bw)
-      return(list(data1=data1.new, data2=data2.new) )
+  return(list(data1=data1.new, data2=data2.new) )
 }
 
-
+Resample_gpu <- function(data, weight, NofSample){
+  re_ind <- gpuVector(runif(NofSample))
+  cmwt <- cumsum(weight[]);
+  st <- sapply(re_ind, function(x) sum(x>cmwt[-length(cmwt)]))
+  newdata <- data[][c(st+1) ]
+  return(newdata)
+}
 
 sig <- function(x){
   y = (tanh(x) + 1) / 2;
@@ -292,3 +298,11 @@ pi_shori <- function (x){
 }
 
 
+sig_95 <- function(x){
+  y = 0.95*(tanh(x) + 1) / 2;
+  return(y)
+}
+sig_env_95 <- function(y){
+  x = (1/2)*log(2*y/(1.9-2*y));
+  return(x)
+}

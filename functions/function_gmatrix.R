@@ -1,8 +1,9 @@
+library(gmatrix)
 particlefilter <- function(par, y, v, nParticle){
   
   #パラメータの取得
   print(par)
-  phi1 <- par[1]; 
+  phi1 <- par[1];
   gam  <- par[2]; 
   mu_g <- par[3];
   mu_f <- par[4]; 
@@ -14,12 +15,12 @@ particlefilter <- function(par, y, v, nParticle){
   dT <- length(y);
   
   
-  pfOut1 <- (matrix(nrow=(dT-1), ncol=nParticle));
+  pfOut1 <- gmatrix(rep(0,(dT-1)*nParticle),nrow=(dT-1), ncol=nParticle);
   
-  wt <- (matrix(nrow=(dT-1), ncol=nParticle));
-  rho1 <- (matrix(nrow=(dT-1), ncol=nParticle));
+  wt <- gmatrix(rep(0,(dT-1)*nParticle),nrow=(dT-1), ncol=nParticle);
+  rho1 <- gmatrix(rep(0,(dT-1)*nParticle),nrow=(dT-1), ncol=nParticle);
   
-  a0 = rnorm(nParticle);
+  a0 = grnorm(nParticle,sd = sqrt(1-phi1^2));
   t0 = rwrpcauchy(nParticle, mu_f, rho_f);
   t0 = sapply(t0, pi_shori);
   
@@ -35,31 +36,28 @@ particlefilter <- function(par, y, v, nParticle){
   
   
   for(dt in 2:(dT-1)){
-    pfOut1[dt,] <- phi1 * pfOut1[dt - 1, ] + rnorm(nParticle,sd=sqrt(1-phi1^2))
-    rho1[dt,] <- 0.95 * ( tanh( sig_rho * pfOut1[dt,] + mu_rho)+1) / 2
-    if(sum(rho1[dt,] == 0)>0){
-      rho1[dt,which(rho1[dt,] == 0)] <-  5.2736e-17
+    
+    pfOut1[dt,] <- phi1 * pfOut1[dt-1,]+
+      grnorm(nParticle,sd=sqrt(1-phi1^2))
+    
+    rho1[dt,] <- (0.95 * ( tanh( sig_rho * pfOut1[dt,] + mu_rho)+1) / 2)
+    
+    if(as.logical(sum(rho1[dt,] == 0)>0)){
+      rho1[dt,] <-  5.2736e-17
     }
     
     tmp1 = d_conditional_WJ(y[dt+1], y[dt], mu_g, rho1[dt,], mu_f, rho_f, 1)
-    tmp2 = dgamma(v[dt]/(gam*exp(pfOut1[dt,]/2)) , shape = V, rate = V)/(gam*exp(pfOut1[dt,]/2))
+    tmp2 = dgamma(v[dt]/(gam*exp(as.double(pfOut1[dt,]/2))) , shape = V, rate = V)/(gam*exp(pfOut1[dt,]/2))
     
-    wt[dt,] = (tmp1/sum(tmp1)) * (tmp2/sum(tmp2)) * wt[dt-1,]
+    wt[dt,] = tmp1 * tmp2 * wt[dt-1,]
     wt_tmp <- wt[dt,] / sum(wt[dt,])
     wt[dt,] <- wt_tmp
     
     N_eff[dt] = 1 / sum(wt[dt,]^2);
-    if(is.nan(sum(wt[dt,]))){
-      browser()
-      print(dt)
-    }
     if(N_eff[dt] < nEff){
+      
       pfOut1[dt,] <- Resample1(pfOut1[dt,], wt[dt,], nParticle);
-      rho1[dt,] <- Resample1(rho1[dt,], wt[dt,], nParticle);
       wt[dt,] <- rep(1 / nParticle,nParticle);
-    }
-    if(sum(is.na(wt[dt,]) > 0)){
-      browser()
     }
   }
   
@@ -69,20 +67,30 @@ particlefilter <- function(par, y, v, nParticle){
 }
 
 particlesmoother <- function(phi1, pfOut1, wt){
+  #clusterExport(cl,list("phi1","gdnorm"))
   size = dim(wt);
-  smwt <- (matrix(nrow=size[1], ncol=size[2]));
+  smwt <- gmatrix(nrow=size[1], ncol=size[2]);
   smwt[size[1],] <- wt[size[1],]
+  weight_table <- array(dim = c(size[2], size[2], size[1]));
   
   for (dt in (size[1] - 1):1 ){
-    sm_table1 = sapply(pfOut1[dt,],function(x) dnorm(pfOut1[dt+1,],phi1 *  x,sqrt(1 - phi1^2)))
-    bunsi = t(smwt[dt+1,] * sm_table1);
-    bunbo = wt[dt,] %*% t(sm_table1);
+    print(dt)
+    pf1 = as.vector(pfOut1[dt,])
+    pf2 = as.vector(pfOut1[dt+1,])
+    #sm_table1 = parSapply(cl, pf1,
+    #                      function(x) as.double(dnorm(pf2, phi1 *  x,sqrt(1 - phi1^2))))
+    weight_table[,,dt] =  t(gmatrix( gdnorm(rep(pf2,size[2]),
+                                t(matrix(phi1 * rep(pf1,size[2]),ncol=size[2],nrow=size[2])),
+                                sqrt(1 - phi1^2)),
+                          ncol = size[2], nrow=size[2]))
     
-    smwt[dt,] <- c(t(wt[dt,] * (bunsi %*% t(1/bunbo))))
+    bunsi = t(smwt[dt+1,] * weight_table[,,dt]);
+    bunbo = wt[dt,] %*% t(weight_table[,,dt]);
+    
+    smwt[dt,] <- t(wt[dt,] * (bunsi %*% t(1/bunbo)))
   }
-  return(smwt)
+  return(list(smwt=smwt,weight_table=weight_table))
 }
-
 
 pairwise_weight <- function(phi1, filter_X, filter_weight, sm_weight){
   size = dim(filter_weight);
@@ -129,6 +137,45 @@ Q_calc <- function(par, pfOut1, rho1, pw_weight, sm_weight, y, v){
   return(-Q_state - Q_obeserve);
 }
 
+Q_calc_para <- function(par, pfOut1, rho1, pw_weight, sm_weight, y, v){
+  phi1 <- sig(par[1])
+  gam  <- exp(par[2])
+  mu_g <- par[3]
+  mu_f <- par[4]
+  rho_f <- sig(par[5])
+  V <- exp(par[6]);
+  mu_rho <- par[7];
+  sig_rho <- exp(par[8]);
+  
+  Q_state = 0;
+  Q_obeserve = 0;
+  first_state = 0;
+  
+  size <- dim(pfOut1)
+  Q_state = rep(0,size[1])
+  
+  clusterExport(scl,c('pw_weight','pfOut1','smwt','phi1','y','v','gam','V','mu_g','mu_f','rho_f','d_conditional_WJ',
+                      'psswrappedcauchy','dsswrpcauchy','sig_rho','mu_rho'))
+  
+  tmp = parLapply(cl = scl,x = 2:(size[1] - 1),fun= function(dt){
+    rho1_t_1<- 0.95 * ( tanh( sig_rho * pfOut1[dt-1,] + mu_rho)+1) / 2
+    
+    Q_state = sum(
+      pw_weight[,,dt] * log(
+        t(sapply(pfOut1[dt,],function(x) dnorm(x, phi1 * pfOut1[dt-1,], sqrt(1 - phi1^2))))
+      )
+    )
+    
+    tmp1 = sapply(rho1_t_1,function(x) d_conditional_WJ(y[dt], y[dt-1], mu_g, x, mu_f, rho_f, 1));
+    tmp2 = dgamma(v[dt]/(gam*exp(pfOut1[dt,]/2)) , shape = V, rate = V)/(gam*exp(pfOut1[dt,]/2));
+    Q_obeserve = Q_obeserve + sm_weight[dt-1,] %*% log(tmp1) + sm_weight[dt,] %*% log(tmp2);
+    Q_state + Q_obeserve
+  })
+  tmp2 <- sapply(tmp,function(x)x)
+  return(-sum(tmp2));
+}
+A <- matrix(c(1,2,3,4),ncol=2)
+B <- c(1,3)
 
 
 
@@ -238,54 +285,13 @@ particlefilter_theta_estimate <- function(par, y, v, nParticle){
     }
     
     pfOut2[dt+1,] <- parSapply(cl=scl, X = rho1[dt,] ,function(X) r_conditional_WJ_mean(100, y[dt], mu_g, X, mu_f, rho_f, 1))
-   print(dt) 
+    print(dt) 
   }
   
   return(list(pfOut1 = pfOut1,pfOut2 = pfOut2,rho1 = rho1,wt = wt) )
   
   
 }
-
-
-
-Q_calc_para <- function(par, pfOut1, rho1, pw_weight, sm_weight, y, v){
-  phi1 <- sig(par[1])
-  gam  <- exp(par[2])
-  mu_g <- par[3]
-  mu_f <- par[4]
-  rho_f <- sig(par[5])
-  V <- exp(par[6]);
-  mu_rho <- par[7];
-  sig_rho <- exp(par[8]);
-  
-  Q_state = 0;
-  Q_obeserve = 0;
-  first_state = 0;
-  
-  size <- dim(pfOut1)
-  Q_state = rep(0,size[1])
-  
-  clusterExport(scl,c('pw_weight','pfOut1','smwt','phi1','y','v','gam','V','mu_g','mu_f','rho_f','d_conditional_WJ',
-                      'psswrappedcauchy','dsswrpcauchy','sig_rho','mu_rho'))
-  
-  tmp = parLapply(cl = scl,x = 2:(size[1] - 1),fun= function(dt){
-    rho1_t_1<- 0.95 * ( tanh( sig_rho * pfOut1[dt-1,] + mu_rho)+1) / 2
-    
-    Q_state = sum(
-      pw_weight[,,dt] * log(
-        t(sapply(pfOut1[dt,],function(x) dnorm(x, phi1 * pfOut1[dt-1,], sqrt(1 - phi1^2))))
-      )
-    )
-    
-    tmp1 = sapply(rho1_t_1,function(x) d_conditional_WJ(y[dt], y[dt-1], mu_g, x, mu_f, rho_f, 1));
-    tmp2 = dgamma(v[dt]/(gam*exp(pfOut1[dt,]/2)) , shape = V, rate = V)/(gam*exp(pfOut1[dt,]/2));
-    Q_obeserve = Q_obeserve + sm_weight[dt-1,] %*% log(tmp1) + sm_weight[dt,] %*% log(tmp2);
-    Q_state + Q_obeserve
-  })
-  tmp2 <- sapply(tmp,function(x)x)
-  return(-sum(tmp2));
-}
-
 
 
 Q_calc_in <- function(par, pfOut1, rho1, pw_weight, sm_weight, y, v){

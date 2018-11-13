@@ -1,0 +1,256 @@
+---
+title: "白浜のデータについて"
+editor_options: 
+  chunk_output_type: console
+output:
+  html_document:
+    toc: true
+    toc_float: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(ggplot2)
+theme_set(theme_bw())
+```
+
+
+
+# データの読み込み年間plot
+
+途中で風向のデータが変わるので二つに分けてplot
+
+```{r}
+data <- read.csv("SOOWind_201811.csv",skip = 1)
+head(data)
+
+#data[,c(1,2,3,4)]
+date_data <- apply(data,1,function(x) paste(x[1],x[2],x[3],x[4],'00',sep='-'))
+date_data <- as.POSIXlt(date_data,format="%Y-%m-%d-%H-%M")
+
+wind_data1 <- data.frame(dt = date_data,v = data$wind_vel,y = data$wind_dir,year = data$X..Year)
+wind_data1 <- wind_data1[wind_data1$dt >= '2007-01-01' & wind_data1$dt < '2011-10-01',]
+
+sum(wind_data1$y == 180)
+
+wind_data1$y[wind_data1$y < 180] <- wind_data1$y[wind_data1$y < 180]/180*pi
+wind_data1$y[wind_data1$y >= 180] <- -abs(wind_data1$y[wind_data1$y >= 180]-360)/180*pi
+
+
+
+ggplot(wind_data1,aes(x=dt,y=v)) + geom_line() + ylim(c(-1,NA))
+ggplot(wind_data1,aes(x=dt,y=y)) + geom_point() + ylim(c(-pi,pi))
+
+wind_data2 <- data.frame(dt = date_data,v = data$wind_vel,y = data$wind_dir.55,year = data$X..Year)
+wind_data2 <- wind_data2[wind_data2$dt >= '2011-10-01',]
+
+wind_data2$y[wind_data2$y < 180] <- wind_data2$y[wind_data2$y < 180]/180*pi
+wind_data2$y[wind_data2$y >= 180] <- -abs(wind_data2$y[wind_data2$y >= 180]-360)/180*pi
+
+ggplot(wind_data2,aes(x=dt,y=v)) + geom_line() + ylim(c(-1,NA))
+ggplot(wind_data2,aes(x=dt,y=y)) + geom_point() + ylim(c(-pi,pi))
+```
+
+# 良さそうな期間のplot
+
+下記の時期が風速と風向をみた感じ良さげだったうち比較的最近上三つのデータをplot
+
+- 2017-01
+- 2017-11
+- 2012-01
+- 2008-1
+- 2008-2
+- 2007-11
+- 2007-01
+
+```{r}
+wind_data_plot <- wind_data2[wind_data2$year == 2017 & months(wind_data2$dt) == "1月",]
+
+ggplot(wind_data_plot,aes(x=v,y=y)) + geom_point() +
+  facet_wrap(.~months(wind_data_plot$dt),scales = "free") +
+  ylim(c(-pi,pi)) + xlim(c(-1,NA))+ labs(title="2017 01")
+
+wind_data_plot <- wind_data2[wind_data2$year == 2017 & months(wind_data2$dt) == "11月",]
+
+ggplot(wind_data_plot,aes(x=v,y=y)) + geom_point() +
+  facet_wrap(.~months(wind_data_plot$dt),scales = "free") +
+  ylim(c(-pi,pi)) + xlim(c(-1,NA))+ labs(title="2017 11")
+
+wind_data_plot <- wind_data2[wind_data2$year == 2012 & months(wind_data2$dt) == "1月",]
+
+ggplot(wind_data_plot,aes(x=v,y=y)) + geom_point() +
+  facet_wrap(.~months(wind_data_plot$dt),scales = "free") +
+  ylim(c(-pi,pi)) + xlim(c(-1,NA))+ labs(title="2017 11")
+```
+
+
+
+
+# 全データplot
+
+```{r}
+wind_data_2007 <- wind_data1[wind_data1$year == 2007,]
+
+ggplot(wind_data_2007, aes(x=dt,y=v)) + geom_line() + 
+  facet_wrap(.~months(wind_data_2007$dt),scales = "free") +
+  ylim(c(-1,NA)) + labs(title="2007 speed")
+ggplot(wind_data_2007,aes(x=dt,y=y)) + geom_point() +
+  facet_wrap(.~months(wind_data_2007$dt),scales = "free") +
+  ylim(c(-pi,pi))+ labs(title="2007 direction")
+
+ggplot(wind_data_2007,aes(x=v,y=y)) + geom_point() +
+  facet_wrap(.~months(wind_data_2007$dt),scales = "free") +
+  ylim(c(-pi,pi)) + xlim(c(-1,NA))+ labs(title="2007 speed and direction")
+
+
+wind_data_2008 <- wind_data1[wind_data1$year == 2008,]
+
+ggplot(wind_data_2008, aes(x=dt,y=v)) + geom_line() + 
+  facet_wrap(.~months(wind_data_2008$dt),scales = "free") +
+  ylim(c(-1,NA)) + labs(title="2008 speed")
+ggplot(wind_data_2008,aes(x=dt,y=y)) + geom_point() +
+  facet_wrap(.~months(wind_data_2008$dt),scales = "free") +
+  ylim(c(-pi,pi))
+
+ggplot(wind_data_2008,aes(x=v,y=y)) + geom_point() +
+  facet_wrap(.~months(wind_data_2008$dt),scales = "free") +
+  ylim(c(-pi,pi)) + xlim(c(-1,NA))
+
+
+wind_data_2009 <- wind_data1[wind_data1$year == 2009,]
+
+ggplot(wind_data_2009, aes(x=dt,y=v)) + geom_line() + 
+  facet_wrap(.~months(wind_data_2009$dt),scales = "free") +
+  ylim(c(-1,NA))+ labs(title="2009 speed")
+ggplot(wind_data_2009,aes(x=dt,y=y)) + geom_point() +
+  facet_wrap(.~months(wind_data_2009$dt),scales = "free") +
+  ylim(c(-pi,pi))
+
+ggplot(wind_data_2009,aes(x=v,y=y)) + geom_point() +
+  facet_wrap(.~months(wind_data_2009$dt),scales = "free") +
+  ylim(c(-pi,pi)) + xlim(c(-1,NA))
+
+
+
+wind_data_2010 <- wind_data1[wind_data1$year == 2010,]
+
+ggplot(wind_data_2010, aes(x=dt,y=v)) + geom_line() + 
+  facet_wrap(.~months(wind_data_2010$dt),scales = "free") +
+  ylim(c(-1,NA))+ labs(title="2010 speed")
+ggplot(wind_data_2010,aes(x=dt,y=y)) + geom_point() +
+  facet_wrap(.~months(wind_data_2010$dt),scales = "free") +
+  ylim(c(-pi,pi))
+
+ggplot(wind_data_2010,aes(x=v,y=y)) + geom_point() +
+  facet_wrap(.~months(wind_data_2010$dt),scales = "free") +
+  ylim(c(-pi,pi)) + xlim(c(-1,NA))
+
+
+wind_data_2011 <- wind_data1[wind_data1$year == 2011,]
+
+ggplot(wind_data_2011, aes(x=dt,y=v)) + geom_line() + 
+  facet_wrap(.~months(wind_data_2011$dt),scales = "free") +
+  ylim(c(-1,NA))+ labs(title="2011 speed")
+ggplot(wind_data_2011,aes(x=dt,y=y)) + geom_point() +
+  facet_wrap(.~months(wind_data_2011$dt),scales = "free") +
+  ylim(c(-pi,pi))
+
+ggplot(wind_data_2011,aes(x=v,y=y)) + geom_point() +
+  facet_wrap(.~months(wind_data_2011$dt),scales = "free") +
+  ylim(c(-pi,pi)) + xlim(c(-1,NA))
+
+wind_data_2011 <- wind_data2[wind_data2$year == 2011,]
+
+ggplot(wind_data_2011, aes(x=dt,y=v)) + geom_line() + 
+  facet_wrap(.~months(wind_data_2011$dt),scales = "free") +
+  ylim(c(-1,NA))+ labs(title="2011 speed")
+ggplot(wind_data_2011,aes(x=dt,y=y)) + geom_point() +
+  facet_wrap(.~months(wind_data_2011$dt),scales = "free") +
+  ylim(c(-pi,pi))
+
+ggplot(wind_data_2011,aes(x=v,y=y)) + geom_point() +
+  facet_wrap(.~months(wind_data_2011$dt),scales = "free") +
+  ylim(c(-pi,pi)) + xlim(c(-1,NA))
+
+
+wind_data_2012 <- wind_data2[wind_data2$year == 2012,]
+
+ggplot(wind_data_2012, aes(x=dt,y=v)) + geom_line() + 
+  facet_wrap(.~months(wind_data_2012$dt),scales = "free") +
+  ylim(c(-1,NA))
+ggplot(wind_data_2012,aes(x=dt,y=y)) + geom_point() +
+  facet_wrap(.~months(wind_data_2012$dt),scales = "free") +
+  ylim(c(-pi,pi))
+
+ggplot(wind_data_2012,aes(x=v,y=y)) + geom_point() +
+  facet_wrap(.~months(wind_data_2012$dt),scales = "free") +
+  ylim(c(-pi,pi)) + xlim(c(-1,NA))
+
+
+wind_data_2013 <- wind_data2[wind_data2$year == 2013,]
+
+ggplot(wind_data_2013, aes(x=dt,y=v)) + geom_line() + 
+  facet_wrap(.~months(wind_data_2013$dt),scales = "free") +
+  ylim(c(-1,NA))
+ggplot(wind_data_2013,aes(x=dt,y=y)) + geom_point() +
+  facet_wrap(.~months(wind_data_2013$dt),scales = "free") +
+  ylim(c(-pi,pi))
+
+ggplot(wind_data_2013,aes(x=v,y=y)) + geom_point() +
+  facet_wrap(.~months(wind_data_2013$dt),scales = "free") +
+  ylim(c(-pi,pi)) + xlim(c(-1,NA))
+
+
+wind_data_2014 <- wind_data2[wind_data2$year == 2014,]
+
+ggplot(wind_data_2014, aes(x=dt,y=v)) + geom_line() + 
+  facet_wrap(.~months(wind_data_2014$dt),scales = "free") +
+  ylim(c(-1,NA))
+ggplot(wind_data_2014,aes(x=dt,y=y)) + geom_point() +
+  facet_wrap(.~months(wind_data_2014$dt),scales = "free") +
+  ylim(c(-pi,pi))
+
+ggplot(wind_data_2014,aes(x=v,y=y)) + geom_point() +
+  facet_wrap(.~months(wind_data_2014$dt),scales = "free") +
+  ylim(c(-pi,pi)) + xlim(c(-1,NA))
+
+wind_data_2015 <- wind_data2[wind_data2$year == 2015,]
+
+ggplot(wind_data_2015, aes(x=dt,y=v)) + geom_line() + 
+  facet_wrap(.~months(wind_data_2015$dt),scales = "free") +
+  ylim(c(-1,NA))
+ggplot(wind_data_2015,aes(x=dt,y=y)) + geom_point() +
+  facet_wrap(.~months(wind_data_2015$dt),scales = "free") +
+  ylim(c(-pi,pi))
+
+ggplot(wind_data_2015,aes(x=v,y=y)) + geom_point() +
+  facet_wrap(.~months(wind_data_2015$dt),scales = "free") +
+  ylim(c(-pi,pi)) + xlim(c(-1,NA))
+
+wind_data_2016 <- wind_data2[wind_data2$year == 2016,]
+
+ggplot(wind_data_2016, aes(x=dt,y=v)) + geom_line() + 
+  facet_wrap(.~months(wind_data_2016$dt),scales = "free") +
+  ylim(c(-1,NA))
+ggplot(wind_data_2016,aes(x=dt,y=y)) + geom_point() +
+  facet_wrap(.~months(wind_data_2016$dt),scales = "free") +
+  ylim(c(-pi,pi))
+
+ggplot(wind_data_2016,aes(x=v,y=y)) + geom_point() +
+  facet_wrap(.~months(wind_data_2016$dt),scales = "free") +
+  ylim(c(-pi,pi)) + xlim(c(-1,NA))
+
+wind_data_2017 <- wind_data2[wind_data2$year == 2017,]
+
+ggplot(wind_data_2017, aes(x=dt,y=v)) + geom_line() + 
+  facet_wrap(.~months(wind_data_2017$dt),scales = "free") +
+  ylim(c(-1,NA))
+ggplot(wind_data_2017,aes(x=dt,y=y)) + geom_point() +
+  facet_wrap(.~months(wind_data_2017$dt),scales = "free") +
+  ylim(c(-pi,pi))
+
+ggplot(wind_data_2017,aes(x=v,y=y)) + geom_point() +
+  facet_wrap(.~months(wind_data_2017$dt),scales = "free") +
+  ylim(c(-pi,pi)) + xlim(c(-1,NA))
+```
+
