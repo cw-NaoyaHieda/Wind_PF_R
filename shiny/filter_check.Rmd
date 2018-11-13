@@ -1,0 +1,188 @@
+---
+title: "FilterのParticle数について"
+author: "Naoya"
+runtime: shiny
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: columns
+    social: menu
+---
+
+
+```{r}
+rm(list=ls())
+Packages <- c("circular","CircStats","reshape2","scales","tidyverse","optimParallel","snow","data.table","gridExtra") 
+for(package in Packages) library(package, character.only = T)
+set.seed(1000)
+phi1 = 0.90
+gam = 3 #constants in wind speed
+mu_g = 0.0  # location in wind direction for transition
+mu_f = 0.0 # location in wind direction for marginal
+rho_f = 0.1 # consentration in wind direction for marginal
+V = 3
+mu_rho = 0.5
+sig_rho= 1
+par1 = c(phi1, gam, mu_g, mu_f, rho_f, V, mu_rho, sig_rho);
+df <- read.csv("df.csv")
+df <- df[,c(-1)]
+df2=melt(df,id.vars=c("x"),
+         measure.vars=c("y","v","rho", "alpha"))
+pfOut1_100 <- fread('pfOut1_100.csv')
+pfOut1_100 <- pfOut1_100[,-1]
+rho1_100 <- fread('rho1_100.csv')
+rho1_100 <- rho1_100[,-1]
+wt_100 <- fread('wt_100.csv')
+wt_100 <- wt_100[,-1]
+
+pfOut1_1000 <- fread('pfOut1_1000.csv')
+pfOut1_1000 <- pfOut1_1000[,-1]
+rho1_1000 <- fread('rho1_1000.csv')
+rho1_1000 <- rho1_1000[,-1]
+wt_1000 <- fread('wt_1000.csv')
+wt_1000 <- wt_1000[,-1]
+
+pfOut1_10000 <- fread('pfOut1_10000.csv')
+pfOut1_10000 <- pfOut1_10000[,-1]
+rho1_10000 <- fread('rho1_10000.csv')
+rho1_10000 <- rho1_10000[,-1]
+wt_10000 <- fread('wt_10000.csv')
+wt_10000 <- wt_10000[,-1]
+theme_set(theme_bw())
+
+scaleFUN <- function(x) sprintf("%.2f", x) 
+```
+
+# Data
+
+## Inputs {.sidebar}
+
+```{r}
+selectInput("question4", label = h3(""), 
+    choices = list("Time-series plot",
+                   "Relationship Direction and Speed")
+    , 
+    selected = 1)
+```
+
+
+## left{data-width=1000}
+
+### 
+
+
+
+```{r}
+question4 <- reactive(input$question4)
+levels(df2$variable)[levels(df2$variable)=="y"] <- "Wind Direction"
+levels(df2$variable)[levels(df2$variable)=="v"] <- "Wind Speed"
+
+renderPlot({
+  if(question4() == 'Time-series plot'){
+ggplot(df2,aes(x,value))+
+  facet_grid(variable~.,scales="free_y")+ylab("")+
+  geom_point(data = subset(df2, variable == "Wind Direction"),size=1.2) +
+  geom_line(data = subset(df2, variable == "Wind Speed"),size=.1) +
+  geom_line(data = subset(df2, variable == "rho"),size=.1)+
+  geom_line(data = subset(df2, variable == "alpha"),size=.1)
+  }else{
+  ggplot(df ,aes(x=v,y=y))+geom_point() + xlab("Wind Speed") + ylab("Wind Direction")
+}
+  })
+```
+
+## right
+
+###
+
+```{r}
+DT::datatable(data.frame(phi1, gam, mu_g, mu_f, rho_f, V, mu_rho, sig_rho))
+```
+
+
+# ParticlePlot
+
+## Inputs {.sidebar}
+
+```{r}
+sliderInput("question0", h3("時点"),
+                       min = 1, max = 799, value = 1)
+```
+
+
+## 
+
+### 
+
+
+
+```{r}
+question0 <- reactive(input$question0)
+renderPlot({
+  p1 <- ggplot(data = data.frame(alpha= t(pfOut1_100[question0(),]),weight = t(wt_100[question0(),])))+
+    geom_point(aes(x=alpha,y=weight))+
+    geom_vline(xintercept = sum(wt_100[question0(),] *
+                                  pfOut1_100[question0(),]),color='blue')+
+    geom_vline(xintercept = df$alpha[question0()],color='red')+
+    xlim(-3.5,3.5)+ scale_y_continuous(labels=scaleFUN)
+  p2 <- ggplot(data = data.frame(alpha= t(pfOut1_1000[question0(),]),weight = t(wt_1000[question0(),])))+
+    geom_point(aes(x=alpha,y=weight))+
+    geom_vline(xintercept = sum(wt_1000[question0(),] *
+                                  pfOut1_1000[question0(),]),color='blue')+
+    geom_vline(xintercept = df$alpha[question0()],color='red')+
+    xlim(-3.5,3.5)+ scale_y_continuous(labels=scaleFUN) 
+  p3 <- ggplot(data = data.frame(alpha= t(pfOut1_10000[question0(),]),weight = t(wt_10000[question0(),])))+
+    geom_point(aes(x=alpha,y=weight))+
+    geom_vline(xintercept = sum(wt_10000[question0(),] *
+                                  pfOut1_10000[question0(),]),color='blue')+
+    geom_vline(xintercept = df$alpha[question0()],color='red')+
+    xlim(-3.5,3.5)+ scale_y_continuous(labels=scaleFUN) 
+  grid.arrange(p1,p2,p3,ncol=1)
+}
+)
+```
+
+
+# HistPlot
+
+## Inputs {.sidebar}
+
+```{r}
+sliderInput("question1", h3("時点"),
+                       min = 1, max = 799, value = 1)
+```
+
+
+## 
+
+### 
+
+
+
+```{r}
+question1 <- reactive(input$question1)
+renderPlot({
+  p1 <- ggplot(data = data.frame(alpha= round(t(pfOut1_100[question1(),]),digits = 2),
+                                 weight = t(wt_100[question1(),])))+
+    geom_bar(stat = "identity",aes(x=alpha,y=weight)) +
+    geom_vline(xintercept = sum(wt_100[question1(),] *
+                                  pfOut1_100[question1(),]),color='blue')+
+    geom_vline(xintercept = df$alpha[question0()],color='red')+
+    xlim(-3.5,3.5)+ scale_y_continuous(labels=scaleFUN) 
+  p2 <- ggplot(data = data.frame(alpha= round(t(pfOut1_1000[question1(),]),digits = 2),
+                                 weight = t(wt_1000[question1(),])))+
+    geom_bar(stat = "identity",aes(x=alpha,y=weight))+ 
+    geom_vline(xintercept = sum(wt_1000[question1(),] *
+                                  pfOut1_1000[question1(),]),color='blue')+
+    geom_vline(xintercept = df$alpha[question0()],color='red')+
+    xlim(-3.5,3.5)+ scale_y_continuous(labels=scaleFUN) 
+  p3 <- ggplot(data = data.frame(alpha= round(t(pfOut1_10000[question1(),]),digits = 2),
+                                 weight = t(wt_10000[question1(),])))+
+    geom_bar(stat = "identity",aes(x=alpha,y=weight))+
+    geom_vline(xintercept = sum(wt_10000[question1(),] *
+                                  pfOut1_10000[question1(),]),color='blue')+
+    geom_vline(xintercept = df$alpha[question0()],color='red')+
+    xlim(-3.5,3.5)+ scale_y_continuous(labels=scaleFUN) 
+  grid.arrange(p1,p2,p3,ncol=1)
+}
+)
+```
